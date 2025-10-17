@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Robotics Field Ticketing — Handover Demo</title>
+  <!-- Tailwind CDN for quick styling (works in demo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Small helpers for the demo */
+    .card { @apply bg-white shadow-md rounded-2xl p-4; }
+    .badge { @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+  <div class="max-w-7xl mx-auto">
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-extrabold">Robotics Field Ticketing — Handover Demo</h1>
+        <p class="text-sm text-slate-600">Create tickets, assign ownership to departments and perform handovers. (Client-side demo)</p>
+      </div>
+      <div class="text-right">
+        <div class="text-sm text-slate-500">Demo build • No backend — data stored in browser</div>
+        <div class="text-xs text-slate-400">Export / Import available</div>
+      </div>
+    </header>
+
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Left: Create / Filters -->
+      <section class="card lg:col-span-1">
+        <h2 class="font-semibold mb-3">Create Ticket</h2>
+        <form id="ticketForm" class="space-y-3">
+          <div>
+            <label class="text-sm font-medium">Title</label>
+            <input id="title" required class="w-full mt-1 p-2 border rounded" placeholder="Short summary" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Robot ID / Serial</label>
+            <input id="robotId" class="w-full mt-1 p-2 border rounded" placeholder="e.g. RB-2025-001" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Issue Type</label>
+            <select id="issueType" class="w-full mt-1 p-2 border rounded">
+              <option>Software</option>
+              <option>Electronics</option>
+              <option>Mechanical</option>
+              <option>Production</option>
+              <option>Application</option>
+              <option>Purchase</option>
+              <option>Sales / Customer Success</option>
+              <option>Project</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium">Priority</label>
+            <select id="priority" class="w-full mt-1 p-2 border rounded">
+              <option>Low</option>
+              <option selected>Medium</option>
+              <option>High</option>
+              <option>Critical</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium">Current Owner Department</label>
+            <select id="departmentOwner" class="w-full mt-1 p-2 border rounded">
+              <option>Project</option>
+              <option>Robotics Software</option>
+              <option>Robotics Electronics</option>
+              <option>Application Team</option>
+              <option>Production</option>
+              <option>Mechanical</option>
+              <option>Purchase</option>
+              <option>Sales / Customer Success</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium">Description</label>
+            <textarea id="description" rows="4" class="w-full mt-1 p-2 border rounded" placeholder="Detailed description, steps to reproduce, site details..."></textarea>
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded shadow">Create Ticket</button>
+            <button id="seedDemo" type="button" class="px-3 py-2 bg-emerald-600 text-white rounded shadow">Seed Demo</button>
+            <button id="exportBtn" type="button" class="px-3 py-2 bg-slate-200 rounded">Export</button>
+          </div>
+        </form>
+
+        <hr class="my-4" />
+        <div>
+          <h3 class="font-medium mb-2">Filters</h3>
+          <div class="space-y-2">
+            <input id="searchText" placeholder="Search title / robot / description" class="w-full p-2 border rounded" />
+            <select id="filterDept" class="w-full p-2 border rounded">
+              <option value="">All Departments</option>
+              <option>Project</option>
+              <option>Robotics Software</option>
+              <option>Robotics Electronics</option>
+              <option>Application Team</option>
+              <option>Production</option>
+              <option>Mechanical</option>
+              <option>Purchase</option>
+              <option>Sales / Customer Success</option>
+            </select>
+            <select id="filterStatus" class="w-full p-2 border rounded">
+              <option value="">All Status</option>
+              <option>New</option>
+              <option>Assigned</option>
+              <option>In Progress</option>
+              <option>Handover Pending</option>
+              <option>Handed Over</option>
+              <option>Resolved</option>
+              <option>Closed</option>
+            </select>
+            <div class="flex gap-2">
+              <button id="applyFilter" class="px-3 py-2 bg-indigo-600 text-white rounded">Apply</button>
+              <button id="clearFilter" class="px-3 py-2 bg-slate-200 rounded">Clear</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Middle: Ticket list -->
+      <section class="card lg:col-span-2">
+        <div class="flex items-start justify-between mb-4">
+          <h2 class="font-semibold">Tickets</h2>
+          <div class="text-sm text-slate-500">Total: <span id="totalCount">0</span></div>
+        </div>
+
+        <div id="ticketsContainer" class="space-y-3 max-h-[60vh] overflow-auto"></div>
+
+        <hr class="my-4" />
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="p-3 bg-white rounded-lg shadow-sm">
+            <div class="text-xs text-slate-500">Avg Resolution (days)</div>
+            <div id="avgResolution" class="font-bold text-xl">—</div>
+          </div>
+          <div class="p-3 bg-white rounded-lg shadow-sm">
+            <div class="text-xs text-slate-500">Tickets with Handover</div>
+            <div id="handoverCount" class="font-bold text-xl">0</div>
+          </div>
+          <div class="p-3 bg-white rounded-lg shadow-sm">
+            <div class="text-xs text-slate-500">Open Tickets</div>
+            <div id="openCount" class="font-bold text-xl">0</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Ticket modal / details -->
+    <div id="modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-6">
+      <div class="bg-white rounded-2xl max-w-3xl w-full shadow-xl p-6">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 id="modalTitle" class="text-lg font-bold">Ticket</h3>
+            <p id="modalSubtitle" class="text-sm text-slate-500">details & history</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="closeModal" class="px-3 py-2 rounded bg-slate-200">Close</button>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div class="mb-2"><strong>Robot ID:</strong> <span id="mRobot"></span></div>
+            <div class="mb-2"><strong>Priority:</strong> <span id="mPriority"></span></div>
+            <div class="mb-2"><strong>Type:</strong> <span id="mType"></span></div>
+            <div class="mb-2"><strong>Owner Dept:</strong> <span id="mOwner" class="font-semibold"></span></div>
+            <div class="mb-2"><strong>Status:</strong> <span id="mStatus"></span></div>
+            <div class="mb-2"><strong>Assigned To:</strong> <span id="mAssigned"></span></div>
+          </div>
+          <div>
+            <div><strong>Description</strong></div>
+            <div id="mDesc" class="mt-1 p-2 bg-slate-50 rounded"></div>
+          </div>
+        </div>
+
+        <hr class="my-4" />
+        <div>
+          <h4 class="font-semibold mb-2">Handover / Actions</h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <select id="handoverDept" class="p-2 border rounded">
+              <option value="">Choose next department (handover)</option>
+              <option>Robotics Software</option>
+              <option>Robotics Electronics</option>
+              <option>Application Team</option>
+              <option>Production</option>
+              <option>Mechanical</option>
+              <option>Purchase</option>
+              <option>Sales / Customer Success</option>
+              <option>Project</option>
+            </select>
+            <input id="assignTo" placeholder="Assign to (engineer)" class="p-2 border rounded" />
+            <select id="statusSelect" class="p-2 border rounded">
+              <option>Assigned</option>
+              <option>In Progress</option>
+              <option>Handover Pending</option>
+              <option>Handed Over</option>
+              <option>Resolved</option>
+              <option>Closed</option>
+            </select>
+          </div>
+          <textarea id="handoverNotes" rows="3" class="w-full mt-3 p-2 border rounded" placeholder="Handover notes (required when choosing handover)"></textarea>
+          <div class="flex gap-2 mt-3">
+            <button id="saveAction" class="px-4 py-2 bg-amber-600 text-white rounded">Save</button>
+            <button id="forceHandover" class="px-4 py-2 bg-purple-600 text-white rounded">Force Handover</button>
+            <button id="addComment" class="px-4 py-2 bg-sky-600 text-white rounded">Add Comment</button>
+          </div>
+        </div>
+
+        <hr class="my-4" />
+        <div>
+          <h4 class="font-semibold mb-2">History</h4>
+          <div id="historyList" class="space-y-2 max-h-48 overflow-auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Departments list consistent across UI
+    const DEPARTMENTS = [
+      'Robotics Software', 'Robotics Electronics', 'Application Team', 'Production', 'Mechanical', 'Purchase', 'Sales / Customer Success', 'Project'
+    ];
+
+    // Simple in-memory + localStorage persistence
+    let tickets = [];
+
+    // Utilities
+    const uid = () => 'T-' + Math.random().toString(36).slice(2,9).toUpperCase();
+    const nowISO = () => new Date().toISOString();
+
+    // Load from localStorage
+    function load() {
+      const raw = localStorage.getItem('robotics_tickets_v1');
+      tickets = raw ? JSON.parse(raw) : [];
+      renderTickets();
+    }
+
+    function save() {
+      localStorage.setItem('robotics_tickets_v1', JSON.stringify(tickets));
+      renderTickets();
+    }
+
+    // Create ticket
+    document.getElementById('ticketForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const t = {
+        id: uid(),
+        title: document.getElementById('title').value.trim(),
+        robotId: document.getElementById('robotId').value.trim(),
+        issueType: document.getElementById('issueType').value,
+        priority: document.getElementById('priority').value,
+        departmentOwner: document.getElementById('departmentOwner').value,
+        status: 'New',
+        assignedTo: null,
+        description: document.getElementById('description').value.trim(),
+        createdAt: nowISO(),
+        updatedAt: nowISO(),
+        history: [ { action: 'Created', by: 'System', at: nowISO(), notes: 'Initial creation' } ],
+      };
+      tickets.unshift(t);
+      save();
+      e.target.reset();
+      alert('Ticket created — ID: ' + t.id);
+    });
+
+    // Render tickets list
+    function renderTickets(list = tickets) {
+      const container = document.getElementById('ticketsContainer');
+      container.innerHTML = '';
+      document.getElementById('totalCount').textContent = list.length;
+
+      let handoverCount = 0;
+      let openCount = 0;
+      list.forEach(t => {
+        if (['Handover Pending','Handed Over'].includes(t.status)) handoverCount++;
+        if (!['Resolved','Closed'].includes(t.status)) openCount++;
+
+        const el = document.createElement('div');
+        el.className = 'p-3 bg-white rounded-lg shadow-sm flex justify-between items-start';
+        el.innerHTML = `
+          <div class="flex-1">
+            <div class="flex items-center gap-3">
+              <div class="font-semibold">${t.title}</div>
+              <div class="text-xs text-slate-500">${t.id}</div>
+              <div class="ml-2 badge bg-slate-100 text-slate-700">${t.issueType}</div>
+            </div>
+            <div class="text-sm text-slate-600 mt-1">Robot: ${t.robotId || '—'}</div>
+            <div class="text-xs text-slate-500 mt-1">Owner: ${t.departmentOwner} • Status: <strong>${t.status}</strong></div>
+          </div>
+          <div class="flex flex-col items-end gap-2">
+            <div class="text-sm">Priority: <strong>${t.priority}</strong></div>
+            <div class="flex gap-2">
+              <button class="openBtn px-2 py-1 bg-slate-200 rounded" data-id="${t.id}">Open</button>
+              <button class="handoverBtn px-2 py-1 bg-amber-100 rounded" data-id="${t.id}">Handover</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(el);
+      });
+
+      document.getElementById('handoverCount').textContent = handoverCount;
+      document.getElementById('openCount').textContent = openCount;
+
+      // Attach open handlers
+      document.querySelectorAll('.openBtn').forEach(b => b.addEventListener('click', e => openModal(e.target.dataset.id)));
+      document.querySelectorAll('.handoverBtn').forEach(b => b.addEventListener('click', e => quickHandoverPrompt(e.target.dataset.id)));
+    }
+
+    // Quick handover prompt
+    function quickHandoverPrompt(id) {
+      const t = tickets.find(x => x.id === id);
+      if (!t) return;
+      const next = prompt('Enter next department (exact):\n' + DEPARTMENTS.join('\n'));
+      if (!next) return;
+      if (!DEPARTMENTS.includes(next)) {
+        alert('Invalid department. Choose from:\n' + DEPARTMENTS.join('\n'));
+        return;
+      }
+      const notes = prompt('Add handover notes (required)');
+      if (!notes) { alert('Handover notes required'); return; }
+      t.history.push({ action: 'Handover Initiated', by: 'User', at: nowISO(), notes: `To: ${next} | ${notes}` });
+      t.previousOwner = t.departmentOwner;
+      t.departmentOwner = next;
+      t.status = 'Handed Over';
+      t.updatedAt = nowISO();
+      save();
+      alert('Handover complete');
+    }
+
+    // Modal logic
+    let currentModalId = null;
+    function openModal(id) {
+      currentModalId = id;
+      const t = tickets.find(x => x.id === id);
+      if (!t) return;
+      document.getElementById('modalTitle').textContent = t.title + ' • ' + t.id;
+      document.getElementById('modalSubtitle').textContent = `${t.issueType} • Created: ${new Date(t.createdAt).toLocaleString()}`;
+      document.getElementById('mRobot').textContent = t.robotId || '—';
+      document.getElementById('mPriority').textContent = t.priority;
+      document.getElementById('mType').textContent = t.issueType;
+      document.getElementById('mOwner').textContent = t.departmentOwner;
+      document.getElementById('mStatus').textContent = t.status;
+      document.getElementById('mAssigned').textContent = t.assignedTo || '—';
+      document.getElementById('mDesc').textContent = t.description || '—';
+
+      // populate history
+      const hist = document.getElementById('historyList');
+      hist.innerHTML = '';
+      t.history.slice().reverse().forEach(h => {
+        const d = document.createElement('div');
+        d.className = 'p-2 bg-slate-50 rounded';
+        d.innerHTML = `<div class="text-xs text-slate-500">${new Date(h.at).toLocaleString()}</div><div class="text-sm">${h.action} — <em>${h.by}</em></div><div class="text-sm text-slate-700">${h.notes || ''}</div>`;
+        hist.appendChild(d);
+      });
+
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    document.getElementById('closeModal').addEventListener('click', () => {
+      document.getElementById('modal').classList.add('hidden');
+    });
+
+    // Save action from modal (handover / status / assign)
+    document.getElementById('saveAction').addEventListener('click', () => {
+      const t = tickets.find(x => x.id === currentModalId);
+      if (!t) return alert('No ticket selected');
+      const nextDept = document.getElementById('handoverDept').value;
+      const status = document.getElementById('statusSelect').value;
+      const assign = document.getElementById('assignTo').value.trim();
+      const notes = document.getElementById('handoverNotes').value.trim();
+
+      if (nextDept) {
+        if (!notes) return alert('Handover notes required when transferring department');
+        t.history.push({ action: `Handover ${t.departmentOwner} → ${nextDept}`, by: 'User', at: nowISO(), notes });
+        t.previousOwner = t.departmentOwner;
+        t.departmentOwner = nextDept;
+        t.status = 'Handed Over';
+      }
+
+      if (assign) {
+        t.assignedTo = assign;
+        t.history.push({ action: `Assigned To ${assign}`, by: 'User', at: nowISO(), notes: notes || 'Assigned via modal' });
+      }
+
+      if (status) {
+        t.status = status;
+        t.history.push({ action: `Status set to ${status}`, by: 'User', at: nowISO(), notes: notes || '' });
+      }
+
+      t.updatedAt = nowISO();
+      save();
+      document.getElementById('modal').classList.add('hidden');
+    });
+
+    // Force handover (skip notes requirement) — for admin situations
+    document.getElementById('forceHandover').addEventListener('click', () => {
+      const t = tickets.find(x => x.id === currentModalId);
+      if (!t) return alert('No ticket selected');
+      const nextDept = document.getElementById('handoverDept').value;
+      if (!nextDept) return alert('Choose a department');
+      t.history.push({ action: `Force Handover ${t.departmentOwner} → ${nextDept}`, by: 'User', at: nowISO(), notes: 'Forced by user (no notes)' });
+      t.previousOwner = t.departmentOwner;
+      t.departmentOwner = nextDept;
+      t.status = 'Handed Over';
+      t.updatedAt = nowISO();
+      save();
+      document.getElementById('modal').classList.add('hidden');
+    });
+
+    // Add comment
+    document.getElementById('addComment').addEventListener('click', () => {
+      const t = tickets.find(x => x.id === currentModalId);
+      if (!t) return alert('No ticket selected');
+      const notes = document.getElementById('handoverNotes').value.trim();
+      if (!notes) return alert('Comment cannot be empty');
+      t.history.push({ action: 'Comment', by: 'User', at: nowISO(), notes });
+      t.updatedAt = nowISO();
+      save();
+      document.getElementById('modal').classList.add('hidden');
+    });
+
+    // Search & filter handlers
+    document.getElementById('applyFilter').addEventListener('click', () => applyFilters());
+    document.getElementById('clearFilter').addEventListener('click', () => { document.getElementById('searchText').value=''; document.getElementById('filterDept').value=''; document.getElementById('filterStatus').value=''; renderTickets(); });
+
+    function applyFilters() {
+      const q = document.getElementById('searchText').value.toLowerCase();
+      const dept = document.getElementById('filterDept').value;
+      const status = document.getElementById('filterStatus').value;
+      const res = tickets.filter(t => {
+        if (dept && t.departmentOwner !== dept) return false;
+        if (status && t.status !== status) return false;
+        if (q) {
+          return (t.title + ' ' + (t.robotId||'') + ' ' + (t.description||'')).toLowerCase().includes(q);
+        }
+        return true;
+      });
+      renderTickets(res);
+    }
+
+    // Export / Import
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const data = JSON.stringify(tickets, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'robotics_tickets_export.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Seed demo data
+    document.getElementById('seedDemo').addEventListener('click', () => {
+      const sample = [
+        { id: uid(), title: 'Localization drift in Lobby', robotId: 'RB-1001', issueType: 'Software', priority: 'High', departmentOwner: 'Robotics Software', status: 'In Progress', assignedTo: 'A. Khan', description: 'Robot drifts 0.5m during turns near pillars', createdAt: nowISO(), updatedAt: nowISO(), history: [{ action: 'Created', by:'Field', at: nowISO(), notes: 'Observed by field engineer' }] },
+        { id: uid(), title: 'Battery not charging', robotId: 'RB-1109', issueType: 'Electronics', priority: 'Critical', departmentOwner: 'Robotics Electronics', status: 'Handover Pending', assignedTo: null, description: 'Charging LED not blinking, unit not detected by charger', createdAt: nowISO(), updatedAt: nowISO(), history: [{ action:'Created', by:'Field', at: nowISO(), notes:'Battery warm and not accepting charge' }] }
+      ];
+      tickets = sample.concat(tickets);
+      save();
+    });
+
+    // Basic analytics (avg resolution mocked)
+    function computeAnalytics() {
+      // Avg resolution: compute from createdAt -> first Resolved timestamp if exists
+      let totalDays = 0; let count = 0; let handoverCnt = 0; let openCnt = 0;
+      tickets.forEach(t => {
+        const created = new Date(t.createdAt);
+        const resolvedEvent = t.history.find(h => h.action && h.action.startsWith('Status set to Resolved'));
+        if (resolvedEvent) { totalDays += (new Date(resolvedEvent.at) - created) / (1000*60*60*24); count++; }
+        if (t.history.some(h => h.action && h.action.toLowerCase().includes('handover'))) handoverCnt++;
+        if (!['Resolved','Closed'].includes(t.status)) openCnt++;
+      });
+      document.getElementById('avgResolution').textContent = count ? (totalDays/count).toFixed(1) : '—';
+      document.getElementById('handoverCount').textContent = handoverCnt;
+      document.getElementById('openCount').textContent = openCnt;
+    }
+
+    // Recompute analytics on storage change
+    const saveWrapped = save;
+    function save() { localStorage.setItem('robotics_tickets_v1', JSON.stringify(tickets)); renderTickets(); computeAnalytics(); }
+
+    // Init
+    load();
+    computeAnalytics();
+
+  </script>
+</body>
+</html>
