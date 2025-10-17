@@ -482,5 +482,43 @@
     computeAnalytics();
 
   </script>
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  // 🔹 Replace with your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyAdxLWjOrKqtA3XEQ9UguHkcB2Lumovx2U",
+    authDomain: "alphadroid-ticketing.firebaseapp.com",
+    projectId: "alphadroid-ticketing",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 🔹 Add new ticket
+  async function addTicket(ticket) {
+    await addDoc(collection(db, "tickets"), ticket);
+    console.log("Ticket added!");
+  }
+
+  // 🔹 Fetch all tickets
+  async function loadTickets() {
+    const querySnapshot = await getDocs(collection(db, "tickets"));
+    const tickets = [];
+    querySnapshot.forEach(doc => tickets.push({ id: doc.id, ...doc.data() }));
+    return tickets;
+  }
+
+  // 🔹 Update ticket (e.g. status change or handover)
+  async function updateTicket(id, newData) {
+    const ref = doc(db, "tickets", id);
+    await updateDoc(ref, newData);
+  }
+
+  // Example usage (you’ll connect these to your UI)
+  // addTicket({ title: "Motor Error", department: "Robotics Software", status: "Open" });
+  // loadTickets().then(console.log);
+</script>
 </body>
 </html>
