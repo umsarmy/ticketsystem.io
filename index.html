@@ -230,15 +230,13 @@
 
     // Load from localStorage
     function load() {
-      //const raw = localStorage.getItem('robotics_tickets_v1');
-      const tickets = await loadTickets();
+      const raw = localStorage.getItem('robotics_tickets_v1');
       tickets = raw ? JSON.parse(raw) : [];
       renderTickets();
     }
 
     function save() {
-      await addTicket(ticket);
-      //localStorage.setItem('robotics_tickets_v1', JSON.stringify(tickets));
+      localStorage.setItem('robotics_tickets_v1', JSON.stringify(tickets));
       renderTickets();
     }
 
